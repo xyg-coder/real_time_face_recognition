@@ -6,6 +6,6 @@ This project can be divided into two steps:
 
 ## Training Step
 
-Input one video or use the camera to capture one video. Once the input feature can recognize this face of following 10-20 frames, training success. Save the feature into local space.
+Use Ransac to train the face model
 
 ## Detecting Step

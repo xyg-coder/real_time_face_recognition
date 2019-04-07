@@ -1,6 +1,7 @@
 import PIL.Image
 import dlib
 import numpy as np
+import random
 
 import models
 
@@ -21,7 +22,7 @@ def _css_to_rect(css):
     return dlib.rectangle(css[3], css[0], css[1], css[2])
 
 
-def _raw_face_locations(img, number_of_times_to_upsample=1, model='hog'):
+def _raw_face_locations(img, number_of_times_to_upsample=1, model='cnn'):
     """
     returns an array of bounding boxes of human faces in an image
 
@@ -47,8 +48,8 @@ def _raw_face_landmarks(face_image, face_locations=None, model='large'):
     :return: alist of dicts of face features locations
     """
     if face_locations == None:
-        # TODO: try to test cnn model
         face_locations = _raw_face_locations(img=face_image)
+        face_locations = [face_location.rect for face_location in face_locations]
     else:
         face_locations = [_css_to_rect(face_location) for face_location in face_locations]
 
@@ -73,11 +74,25 @@ def face_encodings(face_image, known_face_locations=None, num_jitters=1):
     return [np.array(face_encoder.compute_face_descriptor(face_image, raw_landmark)) for raw_landmark in raw_landmakrs]
 
 
-def ransac_mean(features, ratio_threshold=0.9, dist_iter=0.6):
+def ransac_mean(features, ratio_threshold=0.9, dist_threshold=0.6, max_iters=20):
     """
     Use idea of ransac to get one mean feature. Everytime, randomly pick one feature, and compare the distances
-    with all other features. If the number of features with less distance than dist_iter is more than ratio_threshold
+    with all other features. If the number of features with less distance than dist_threshold is more than ratio_threshold
     stop iterating and return the mean value of these features
 
-
+    :param features: 2-d dimension numpy array, every row is feature of one face
+    :param ratio_threshold: ransac inlier ratio threshold
+    :param dist_threshold: within this threshold is considered inlier
+    :return: return final average feature for inliers or throw one exception
     """
+    feature_count = features.shape[0]
+    for i in range(max_iters):
+        pick_index = random.randint(0, feature_count - 1)
+        pick_feature = features[pick_index]
+        inliers = np.linalg.norm(features - pick_feature, axis=1) < dist_threshold
+        inliers_count = np.sum(inliers)
+        if inliers_count >= ratio_threshold * feature_count:
+            inliers = features[inliers]
+            print('final iterations: {}, inliers_count: {}'.format(i, inliers_count))
+            return np.mean(inliers, axis=0)
+    raise ValueError('the features are not stable enough')
