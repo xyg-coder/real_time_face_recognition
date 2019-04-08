@@ -6,6 +6,28 @@ This project can be divided into two steps:
 
 ## Training Step
 
-Use Ransac to train the face model
+### Main Idea
+
+* Use Ransac to train the face model.
+
+### How to train
+
+```bash
+python3 train_cli.py train-with-video <your-video-location> <username>
+```
 
 ## Detecting Step
+
+### Main Idea
+
+* Detect and encode faces in the frames and save result videos.
+
+### How to recognize
+
+```python
+python3 recognize_cli.py recognize-faces-in-video <your-video-location>
+```
+
+## TODO
+
+* Increase the processing speed to make the recognition real-time.

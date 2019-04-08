@@ -42,7 +42,3 @@ RUN pip3 install face_recognition
 
 # Install opencv2
 RUN pip3 install opencv-python
-
-# change variable
-RUN export LC_ALL=C.UTF-8
-RUN export LANG=C.UTF-8

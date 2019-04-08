@@ -3,22 +3,30 @@ import apis
 import cv2
 import time
 import numpy as np
+import os
 
 @click.group()
 def train():
     pass
 
 @click.command()
-@click.argument('video_location')
+@click.argument('video-location')
 @click.argument('username')
 @click.option('--frame-count', default=100, help='number of frames to calculate')
-def train_with_video(video_location, username, frame_count):
+@click.option('--output-frame', '-o', is_flag=True, default=False, help='output frames')
+@click.option('--frame-output-loc', default='data/frames', help='the folder to output frame')
+@click.option('--saved-feature-loc', default='data/trained_features', help='the folder to save trained feature')
+@click.option('--most-frames', default=None, help='maximum frames to process and train')
+def train_with_video(video_location, username, frame_count, output_frame, frame_output_loc, saved_feature_loc,
+    most_frames):
     cap = cv2.VideoCapture(video_location)
     if not cap.isOpened():
         click.echo('cannot open this video', err=True)
         return
     # get the frame count of this video
     video_length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) - 1
+    if not most_frames is None:
+        video_length = min(video_length, int(most_frames))
     frame_count = min(frame_count, video_length)
     # how many frames we pick one frame
     seperate = int(video_length / frame_count)
@@ -30,6 +38,8 @@ def train_with_video(video_location, username, frame_count):
         if frame_index % seperate == 0 and result_index < frame_count:
             frame_list[result_index] = frame
             result_index = result_index + 1
+            if output_frame:
+              cv2.imwrite(os.path.join(frame_output_loc, '{}.jpg'.format(result_index)), frame)  
         frame_index = frame_index + 1
         # if there is no more frames left
         if frame_index >= video_length:
@@ -38,8 +48,12 @@ def train_with_video(video_location, username, frame_count):
     # if the frame_list is not filled
     if not result_index == frame_count:
         frame_list = frame_list[:result_index]
+    # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
+    frame_list = [frame[:, :, ::-1] for frame in frame_list]
     click.echo('begin training in process pool')
-    train_with_frame_list(frame_list)
+    feature = train_with_frame_list(frame_list)
+    np.save(os.path.join(saved_feature_loc, username), feature)
+    click.echo('finish training')
     
 
 def face_encoding(frame):
@@ -69,7 +83,7 @@ def train_with_frame_list(frame_list):
     click.echo('process time: {}'.format(time.time() - start))
     click.echo('feature count: {}'.format(len(features)))
     click.echo('begin ransac')
-    apis.ransac_mean(np.array(features))
+    return apis.ransac_mean(np.array(features))
 
 
 train.add_command(train_with_video)

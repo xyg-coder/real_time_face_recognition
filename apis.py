@@ -22,6 +22,10 @@ def _css_to_rect(css):
     return dlib.rectangle(css[3], css[0], css[1], css[2])
 
 
+def _rect_to_css(rect):
+    return rect.top(), rect.right(), rect.bottom(), rect.left()
+
+
 def _raw_face_locations(img, number_of_times_to_upsample=1, model='cnn'):
     """
     returns an array of bounding boxes of human faces in an image
@@ -69,12 +73,11 @@ def face_encodings(face_image, known_face_locations=None, num_jitters=1):
     :param num_jitters: How many times to re-sample the face when calculating encoding. Higher is more accurate, but slower (i.e. 100 is 100x slower)
     :return: A list of 128-dimensional face encodings (one for each face in the image)   
     """
-    # TODO: change to large model if not accurate enough
     raw_landmakrs = _raw_face_landmarks(face_image, known_face_locations, model='small')
     return [np.array(face_encoder.compute_face_descriptor(face_image, raw_landmark)) for raw_landmark in raw_landmakrs]
 
 
-def ransac_mean(features, ratio_threshold=0.9, dist_threshold=0.6, max_iters=20):
+def ransac_mean(features, ratio_threshold=0.9, dist_threshold=0.4):
     """
     Use idea of ransac to get one mean feature. Everytime, randomly pick one feature, and compare the distances
     with all other features. If the number of features with less distance than dist_threshold is more than ratio_threshold
@@ -86,6 +89,7 @@ def ransac_mean(features, ratio_threshold=0.9, dist_threshold=0.6, max_iters=20)
     :return: return final average feature for inliers or throw one exception
     """
     feature_count = features.shape[0]
+    max_iters = feature_count * 2
     for i in range(max_iters):
         pick_index = random.randint(0, feature_count - 1)
         pick_feature = features[pick_index]
@@ -96,3 +100,37 @@ def ransac_mean(features, ratio_threshold=0.9, dist_threshold=0.6, max_iters=20)
             print('final iterations: {}, inliers_count: {}'.format(i, inliers_count))
             return np.mean(inliers, axis=0)
     raise ValueError('the features are not stable enough')
+
+
+def recognize_faces_in_images(face_image, features, dist_threshold=0.4):
+    """
+    detect all faces in the face_image, compare it with features.
+    compare the minimum distance with the dist_threshold, if not match, unknown user
+
+    :param face_image: input face_image
+    :param features: 2-d numpy array. Every row is one feature
+    :param dist_threshold: inside this threshold means match
+    :return: one list of tuples representing detected face. 
+        [(top, right, bottom, left, min_index)].
+        If no match, min_dist_index = None
+    """
+    face_locations = _raw_face_locations(img=face_image)
+    face_locations = [_rect_to_css(face_location.rect) for face_location in face_locations]
+
+    face_features = face_encodings(face_image, face_locations)
+    result = [None] * len(face_features)
+    result_index = 0
+    for face_feature in face_features:
+        distances = np.linalg.norm(face_feature - features, axis=1)
+        min_dist_index = np.argmin(distances)
+        if distances.ndim == 0:
+            min_dist = distances
+        else:
+            min_dist = distances[min_dist_index]
+        print(min_dist)
+        if min_dist > dist_threshold:
+            min_dist_index = None
+        result[result_index] = (face_locations[result_index][0], face_locations[result_index][1], 
+            face_locations[result_index][2], face_locations[result_index][3], min_dist_index)
+        result_index = result_index + 1
+    return result
