@@ -12,7 +12,7 @@ def train():
 @click.command()
 @click.argument('video-location')
 @click.argument('username')
-@click.option('--frame-count', default=100, help='number of frames to calculate')
+@click.option('--frame-count', default=200, help='number of frames to calculate')
 @click.option('--output-frame', '-o', is_flag=True, default=False, help='output frames')
 @click.option('--frame-output-loc', default='data/frames', help='the folder to output frame')
 @click.option('--saved-feature-loc', default='data/trained_features', help='the folder to save trained feature')

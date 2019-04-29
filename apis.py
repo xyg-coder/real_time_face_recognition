@@ -37,7 +37,8 @@ def _raw_face_locations(img, number_of_times_to_upsample=1, model='cnn'):
     :return: a list of dlib 'rect' objects of found face locations
     """
     if model == 'cnn':
-        return cnn_face_detector(img, number_of_times_to_upsample)
+        rectangles = cnn_face_detector(img, number_of_times_to_upsample)
+        return [rectangle.rect for rectangle in rectangles]
     else:# hog
         return face_detector(img, number_of_times_to_upsample)
 
@@ -49,11 +50,11 @@ def _raw_face_landmarks(face_image, face_locations=None, model='large'):
     :param face_image: image to search
     :param face_location: optionally provide a list of face locations to search
     :param model: 'large' (default) uses 68 points, 'small' uses 5 points which is faster
-    :return: alist of dicts of face features locations
+    :return: a list of dicts of face features locations
     """
     if face_locations == None:
         face_locations = _raw_face_locations(img=face_image)
-        face_locations = [face_location.rect for face_location in face_locations]
+        face_locations = [face_location for face_location in face_locations]
     else:
         face_locations = [_css_to_rect(face_location) for face_location in face_locations]
 
@@ -95,6 +96,7 @@ def ransac_mean(features, ratio_threshold=0.9, dist_threshold=0.4):
         pick_feature = features[pick_index]
         inliers = np.linalg.norm(features - pick_feature, axis=1) < dist_threshold
         inliers_count = np.sum(inliers)
+        print('{}, {}'.format(inliers_count, feature_count))
         if inliers_count >= ratio_threshold * feature_count:
             inliers = features[inliers]
             print('final iterations: {}, inliers_count: {}'.format(i, inliers_count))
@@ -115,7 +117,7 @@ def recognize_faces_in_images(face_image, features, dist_threshold=0.4):
         If no match, min_dist_index = None
     """
     face_locations = _raw_face_locations(img=face_image)
-    face_locations = [_rect_to_css(face_location.rect) for face_location in face_locations]
+    face_locations = [_rect_to_css(face_location) for face_location in face_locations]
 
     face_features = face_encodings(face_image, face_locations)
     result = [None] * len(face_features)

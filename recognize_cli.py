@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import os
 import glob
+import time
 
 @click.group()
 def recognize():
@@ -71,7 +72,53 @@ def recognize_faces_in_video(video_location, saved_feature_loc, save_result_loc,
     output_movie.release()
 
 
+@click.command()
+@click.argument('image-folder')
+@click.option('--saved-feature-loc', default='data/trained_features', help='the folder to save trained feature')
+@click.option('--save-result-folder', default='data/result_images', help='the folder we save result video')
+def recognize_faces_in_images(image_folder, saved_feature_loc, save_result_folder):
+    def get_username(full_path):
+        """
+        get username from full-path
+        """
+        basename = os.path.basename(full_path)
+        return basename.split('.')[0]
+    feature_files = glob.glob(os.path.join(saved_feature_loc, '*.npy'))
+    features = [np.load(feature_file) for feature_file in feature_files]
+    usernames = [get_username(feature_file) for feature_file in feature_files]
+
+    file_formats = ('*.png', '*.jpg', '*.jpeg')
+    img_files = []
+    for file_format in file_formats:
+        img_files.extend(glob.glob(os.path.join(image_folder, file_format)))
+    for img_file in img_files:
+        recognize_faces_in_image(img_file, features, usernames, os.path.join(save_result_folder, os.path.basename(img_file)))
+
+
+def recognize_faces_in_image(image_location, features, usernames, result_location):
+    # read image
+    img = cv2.imread(image_location)
+    img = img[:,:,::-1]
+
+    start = time.time()
+    face_info_tuple = apis.recognize_faces_in_images(img, features)
+    img = img[:,:,::-1]
+    # draw rectangles
+    for top, right, bottom, left, username in face_info_tuple:
+        if username is None:
+            username = 'unknown'
+        else:
+            username = usernames[username]
+        cv2.rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)
+        font = cv2.FONT_HERSHEY_DUPLEX
+        cv2.putText(img, username, (left + 6, bottom - 6), font, 0.5, (255, 255, 255), 1)
+    end = time.time()
+    print('{} spends time: {}'.format(os.path.basename(image_location), end - start))
+    cv2.imwrite(result_location, img)
+
+
 recognize.add_command(recognize_faces_in_video)
+recognize.add_command(recognize_faces_in_images)
 
 if __name__ == "__main__":
     recognize()
